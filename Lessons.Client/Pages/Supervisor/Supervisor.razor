@@ -1,0 +1,86 @@
+@page "/Supervisor"
+@using Lessons.Domain.DTO.Lesson
+@using Lessons.Domain.Model
+@inject HttpClient Http
+
+<PageTitle>Работа с занятиями</PageTitle>
+
+<h3>Диспетчер</h3>
+<hr/>
+
+<a class="btn btn-primary" href="/Supervisor/AddLesson">Добавить занятие</a>
+
+<div class="list-group">
+    @if (Lessons != null)
+    {
+        @foreach (var lesson in Lessons)
+        {
+            <div id="@lesson.Id" class="list-group-item list-group-item-action">
+            
+                <label>Тип занятия:</label>
+                <div>
+                    @switch (lesson.LessonType)
+                    {
+                        case LessonType.Practice:
+                            <text>Практика</text>
+                            break;
+                        case LessonType.Lecture:
+                            <text>Лекция</text>
+                            break;
+                        case LessonType.Lab:
+                            <text>Лабораторная</text>
+                            break;
+                    }
+                </div>
+                
+                <label>Тема:</label>
+                <div>@lesson.Name</div>
+                
+                <label>Дата:</label>
+                <div>@lesson.DateTime</div>
+                
+                <label>Аудитория:</label>
+                <div>@lesson.Classroom</div>
+                
+                <label>Преподаватель:</label>
+                <div>@lesson.Teacher.LastName @lesson.Teacher.FirstName @lesson.Teacher.PatronymicName</div>
+                
+                <a class="btn btn-primary" href="/Supervisor/EditLesson/@lesson.Id">Изменить занятие</a>
+                <button class="btn btn-primary" @onclick="async () => await DeleteLesson(lesson.Id)">Удалить занятие</button>
+
+            </div>
+        }
+    }
+    else
+    {
+        <div  class="list-group-item list-group-item-action">Занятий нет</div>
+    }
+
+</div>
+
+
+
+@code {
+    
+    private List<LessonDto> Lessons;
+
+    private async Task GetLessons()
+    {
+
+    }
+    
+    
+    protected override async Task OnInitializedAsync()
+    {
+        Lessons = await Http.GetFromJsonAsync<List<LessonDto>>("http://localhost:5059/api/Lessons");
+    }
+
+    private async Task DeleteLesson(int id)
+    {
+        var result = await Http.DeleteAsync($"http://localhost:5059/api/Lessons/{id}");
+        Lessons = await Http.GetFromJsonAsync<List<LessonDto>>("http://localhost:5059/api/Lessons");
+
+    }
+    
+
+}

@@ -1,0 +1,113 @@
+@page "/Teachers/{teacherId:int}/Lessons/{lessonId:int}"
+@using Lessons.Domain.DTO.Lesson
+@using Lessons.Domain.Model
+@inject HttpClient Http
+
+<PageTitle>Редактировать информацию о занятии</PageTitle>
+
+<h3>Изменить тему</h3>
+
+@if (lesson != null)
+{
+    <div class="mb-3">
+        <label for="Name" class="form-label">Название занятия</label>
+        <input type="text" class="form-control" @bind="lesson.Name" id="Name" placeholder="Введите название">
+    </div>
+    <div class="mb-3">
+        <label for="DateTime" class="form-label">Дата и время проведения</label>
+        <input disabled type="datetime-local" class="form-control" @bind="lesson.DateTime" id="DateTime">
+    </div>
+    <div class="mb-3">
+        <label for="Classroom" class="form-label">Номер аудитории</label>
+        <input disabled type="number" class="form-control" @bind="lesson.Classroom" id="Classroom">
+    </div>
+
+    <div class="mb-3">
+        <label for="Teacher" class="form-label">Преподаватель</label>
+        <input disabled type="text" class="form-control" @bind="TeacherFull" id="Teacher">
+    </div>
+        
+    <div class="mb-3">
+        <div class="mb-3">
+            <label for="LessonType" class="form-label">Тип занятия</label>
+            <input disabled="" type="text" class="form-control" @bind="lessonTypeName" id="LessonType">
+        </div>
+    </div>
+
+    @if (lesson.LessonType == LessonType.Lecture)
+    {
+        <div class="mb-3">
+            <label for="LectureType" class="form-label">Формат лекции</label>
+            <input disabled="" type="text" class="form-control" @bind="lectureFormat" id="LectureType">
+        </div>
+    }
+        
+    <div class="mb-3">
+        <label for="Groups" class="form-label">Группы</label>
+        <input disabled="" type="text" class="form-control" @bind="Groups" id="Groups">
+    </div>
+
+    <button type="submit" class="btn btn-primary" @onclick="(async () => await UpdateTheme())">Обновить</button>
+    <hr/>
+    @if (responseMessage != null)
+    {
+        <div class="mb-3">
+            Тема занятия с идентификатором @lessonId успешно обновлена!
+        </div>
+    }
+}
+
+
+
+@code {
+    [Parameter] 
+    public int teacherId { get; set; }
+    
+    [Parameter] 
+    public int lessonId { get; set; }
+
+    private LessonDto? lesson = null;
+    private string TeacherFull;
+    private string lessonTypeName;
+    private string lectureFormat;
+    private string Groups = "";
+
+    private bool? responseMessage = null;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        lesson = await Http.GetFromJsonAsync<LessonDto>($"http://localhost:5059/api/Lessons/{lessonId}");
+        if (lesson != null)
+        {
+            TeacherFull = lesson.Teacher.LastName + " " + lesson.Teacher.FirstName + " " + lesson.Teacher.PatronymicName + ", " + lesson.Teacher.Position;
+            switch (lesson.LessonType)
+            {
+                case LessonType.Practice or LessonType.Lab:
+                
+                    var practicalLesson = await Http.GetFromJsonAsync<PracticalLessonDto>($"http://localhost:5059/api/Lessons/{lessonId}");
+                    lessonTypeName = lesson.LessonType == LessonType.Practice ? "Практика" : "Лабораторная";
+                    Groups = practicalLesson.Group.Number;
+                    break;
+                case LessonType.Lecture:
+                    lessonTypeName = "Лекция";
+                    var lecture = await Http.GetFromJsonAsync<LectureDto>($"http://localhost:5059/api/Lessons/{lessonId}");;
+                    lectureFormat = lecture.LectureType == LectureType.Offline ? "Дистанционно" : "Очно";
+                    foreach (var group in lecture.Groups)
+                    {
+                        Groups += group.Number + " ";
+                    }
+                    break;
+            }
+            
+        }
+    }
+
+    private async Task UpdateTheme()
+    {
+        var response = await Http.PutAsJsonAsync($"http://localhost:5059/api/Persons/Teachers/{teacherId}/Lessons/{lessonId}", lesson.Name);
+        responseMessage = await response.Content.ReadFromJsonAsync<bool>();
+
+    }
+
+}

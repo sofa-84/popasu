@@ -1,0 +1,225 @@
+@page "/Supervisor/EditLesson/{id:int}"
+@using Lessons.Domain.DTO.Person
+@using Lessons.Domain.DTO.Lesson
+@using Lessons.Domain.Model
+@using Lessons.Domain.DTO
+@using System.Text.Json
+@inject HttpClient Http
+<PageTitle>Редактировать информацию о занятии</PageTitle>
+
+<h3>Редактировать</h3>
+
+
+<div class="mb-3">
+    <label for="Name" class="form-label">Название занятия</label>
+    <input type="text" class="form-control" @bind="Name" id="Name" placeholder="Введите название">
+</div>
+<div class="mb-3">
+    <label for="DateTime" class="form-label">Дата и время проведения</label>
+    <input type="datetime-local" class="form-control" @bind="DateTime" id="DateTime" placeholder="Выберите дату и время">
+</div>
+<div class="mb-3">
+    <label for="Classroom" class="form-label">Номер аудитории</label>
+    <input type="number" class="form-control" @bind="Classroom" id="Classroom" placeholder="Введите аудиторию">
+</div>
+@if (TeachersList.Any())
+{
+    <div class="mb-3">
+        <label for="TeacherId" class="form-label">Преподаватель</label>
+        <select class="form-select" @bind="TeacherId" id="TeacherId">
+            <option disabled="" autoFocus>Выберите преподавателя</option>
+
+            @foreach (var teacher in TeachersList)
+            {
+                <option value="@teacher.Id">@teacher.LastName @teacher.FirstName @teacher.PatronymicName, @teacher.Position</option>
+            }
+
+        </select>
+    </div>
+}
+
+
+
+<div class="mb-3">
+    
+    <div class="mb-3">
+        <label for="LessonType" class="form-label">Тип занятия</label>
+        <input disabled="" type="text" class="form-control" id="LessonType" placeholder="@lessonTypeName">
+    </div>
+
+</div>
+
+@switch (LessonType)
+{
+    case LessonType.Lecture:
+    {
+        <div class="mb-3">
+            <label for="LectureType" class="form-label">Формат лекции</label>
+            <select class="form-select" @bind="@LectureType" id="LectureType">
+                <option disabled="" autoFocus>Выберите формат лекции</option>
+    
+                <option value="@LectureType.Offline">Очно</option>
+                <option value="@LectureType.Online">Дистанционно</option>
+            </select>
+        </div>
+        if (GroupsList.Any())
+        {
+            <div class="mb-3">
+                <label for="Groups" class="form-label">Группы</label>
+                <select multiple class="form-select" @onchange="@SelectedGroupsChanged" id="Groups">
+                    <option disabled="" autoFocus>Выберите группы</option>
+
+                    @foreach (var group in GroupsList)
+                    {
+                        <option value="@group.Id">@group.Number</option>
+                    }
+                </select>
+            </div>
+        }
+        break;
+    }
+    case LessonType.Practice or LessonType.Lab:
+    {
+        if (GroupsList.Any())
+        {
+            <div class="mb-3">
+                <label for="GroupId" class="form-label">Группы</label>
+                <select class="form-select" @bind="@GroupId" id="GroupId">
+                    <option disabled="">Выберите группу</option>
+                    @foreach (var group in GroupsList)
+                    {
+                        <option selected="" value="@group.Id">@group.Number</option>
+                    }
+                </select>
+            </div>
+        }
+        break;
+    }
+}
+
+<button type="submit" class="btn btn-primary" @onclick="(async () => await UpdateLesson())">Обновить</button>
+<hr/>
+@if (responseMessage != null)
+{
+    <div class="mb-3">
+        Обновлено занятие с идентификатором: @id
+    </div>
+}
+
+@code {
+    [Parameter] 
+    public int id { get; set; }
+
+    private PracticalLessonDto practicalLesson = null;
+    private LectureDto lecture = null;
+    
+    private string Name;
+    private DateTime DateTime;
+    private int Classroom;
+    private LessonType LessonType;
+    private int TeacherId;
+    private string lessonTypeName;
+
+    private LectureType LectureType;
+    private List<int> Groups = new();
+
+    private PracticalLessonType PracticalLessonType;
+    private int GroupId;
+
+
+    private List<TeacherDto> TeachersList = new();
+    private List<GroupDto> GroupsList = new();
+
+    private bool? responseMessage = null;
+    
+    private async Task UpdateLesson()
+    {
+        if (LessonType == LessonType.Lecture)
+        {
+            CreateLectureDto lectureDto = new();
+
+            lectureDto.Name = Name;
+            lectureDto.DateTime = DateTime;
+            lectureDto.Classroom = Classroom;
+            lectureDto.TeacherId = TeacherId;
+            lectureDto.LectureType = LectureType;
+            lectureDto.GroupsId = Groups;
+            
+            var response = await Http.PutAsJsonAsync($"http://localhost:5059/api/Lessons/Lectures/{id}", lectureDto);
+            responseMessage = await response.Content.ReadFromJsonAsync<bool>();
+        }
+        else
+        {
+            CreatePracticalLessonDto practicalLessonDto = new();
+
+            practicalLessonDto.Name = Name;
+            practicalLessonDto.DateTime = DateTime;
+            practicalLessonDto.Classroom = Classroom;
+            practicalLessonDto.TeacherId = TeacherId;
+            practicalLessonDto.PracticalLessonType = LessonType == LessonType.Practice ? PracticalLessonType.Practice : PracticalLessonType.Lab;
+            practicalLessonDto.GroupId = GroupId;
+
+            var response = await Http.PutAsJsonAsync($"http://localhost:5059/api/Lessons/PracticalLessons/{id}", practicalLessonDto);
+            responseMessage = await response.Content.ReadFromJsonAsync<bool>();
+        }
+    }
+    private void SelectedGroupsChanged(ChangeEventArgs e)
+    {
+        var groups = (string[])e.Value;
+        var tempList = new List<int>();
+        foreach (var group in groups)
+        {
+            tempList.Add(int.Parse(group));
+        }
+
+        Groups = tempList;
+    }
+    
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        TeachersList = await Http.GetFromJsonAsync<List<TeacherDto>>("http://localhost:5059/api/Persons/Teachers");
+        GroupsList = await Http.GetFromJsonAsync<List<GroupDto>>("http://localhost:5059/api/Groups");
+        var lesson = await Http.GetFromJsonAsync<LessonDto>($"http://localhost:5059/api/Lessons/{id}");
+        if (lesson != null)
+        {
+            Name = lesson.Name;
+            DateTime = lesson.DateTime;
+            Classroom = lesson.Classroom;
+            LessonType = lesson.LessonType;
+            TeacherId = lesson.Teacher.Id;
+
+            lessonTypeName = LessonType switch
+            {
+                LessonType.Lecture => "Лекция",
+                LessonType.Lab => "Лабораторная",
+                LessonType.Practice => "Практика",
+                _ => lessonTypeName
+                };
+
+            switch (lesson.LessonType)
+            {
+                case LessonType.Lecture:
+                    lecture = await Http.GetFromJsonAsync<LectureDto>($"http://localhost:5059/api/Lessons/{id}");
+                    if (lecture != null)
+                    {
+                        LectureType = lecture.LectureType;
+                        Groups = lecture.Groups.Select(x => x.Id).ToList();
+                    }
+                    
+                    break;
+                case LessonType.Lab or LessonType.Practice:
+                    practicalLesson = await Http.GetFromJsonAsync<PracticalLessonDto>($"http://localhost:5059/api/Lessons/{id}");
+                    if (practicalLesson != null)
+                    {
+                        PracticalLessonType = practicalLesson.PracticalLessonType;
+                        GroupId = practicalLesson.Group.Id;
+                    }
+
+                    break;
+            }
+        }
+        
+    }
+}

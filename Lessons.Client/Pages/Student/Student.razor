@@ -1,0 +1,97 @@
+@page "/Student"
+@using Lessons.Domain.DTO.Person
+@using Lessons.Domain.DTO.Lesson
+@using Lessons.Domain.Model
+@inject HttpClient Http
+
+<h3>Выберите студента</h3>
+<hr/>
+
+<PageTitle>Просмотреть расписание</PageTitle>
+<div>
+    <select @bind="StudentId" id="Student"> 
+        @if (Students != null)
+        {
+            <option selected="selected">
+                Выберите студента
+            </option>
+            @foreach (var student in Students)
+            {
+                <option value="@student.Id">
+                    @student.LastName @student.FirstName @student.PatronymicName
+                </option>
+            }
+        }
+    </select>
+    <button class="btn btn-primary" @onclick="(async () => await GetLessons())">Посмотреть расписание</button>
+</div>
+
+<div class="list-group">
+    @if (Lessons != null)
+    {
+        @foreach (var lesson in Lessons)
+        {
+            <div id="@lesson.Id" class="list-group-item list-group-item-action">
+            
+                <label>Тип занятия:</label>
+                <div>
+                    @switch (lesson.LessonType)
+                    {
+                        case LessonType.Practice:
+                            <text>Практика</text>
+                            break;
+                        case LessonType.Lecture:
+                            <text>Лекция</text>
+                            break;
+                        case LessonType.Lab:
+                            <text>Лабораторная</text>
+                            break;
+                    }
+                </div>
+                
+                <label>Тема:</label>
+                <div>@lesson.Name</div>
+                
+                <label>Дата:</label>
+                <div>@lesson.DateTime</div>
+                
+                <label>Аудитория:</label>
+                <div>@lesson.Classroom</div>
+                
+                <label>Преподаватель:</label>
+                <div>@lesson.Teacher.LastName @lesson.Teacher.FirstName @lesson.Teacher.PatronymicName</div>
+            </div>
+        }
+    }
+    else
+    {
+        <div  class="list-group-item list-group-item-action">Занятий нет</div>
+    }
+
+</div>
+
+
+
+@code {
+    
+    private List<StudentDto> Students;
+    private int StudentId;
+    private List<LessonDto> Lessons;
+
+    private async Task GetLessons()
+    {
+        if (StudentId > 0)
+            Lessons = await Http.GetFromJsonAsync<List<LessonDto>>($"http://localhost:5059/api/Persons/Students/{StudentId}/Lessons");
+        else
+            Lessons = new List<LessonDto>();
+    }
+    
+    
+    protected override async Task OnInitializedAsync()
+    {
+        Students = await Http.GetFromJsonAsync<List<StudentDto>>("http://localhost:5059/api/Persons/Students");
+    }
+    
+    
+
+}
